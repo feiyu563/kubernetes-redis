@@ -1,0 +1,90 @@
+#StatefulSet master
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: zxbk-redis-master
+  namespace: qiqi-china-zxbk-prod
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:  
+    k8s-app: zxbk-redis
+spec:
+  serviceName: zxbk-redis-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: redis-node
+        role: master
+    spec:
+      affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - node1
+                  - node2
+                  - master1
+                  - master2
+                  - master3
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                    - key: "name"
+                      operator: In
+                      values:
+                      - redis-node
+                topologyKey: "kubernetes.io/hostname"
+      #serviceAccountName: zxbk-redis-serviceaccount
+      containers:
+        # Redis
+        - name: redis-node
+          image: harbor.zxbike.cn/public/redis:3.2.11
+          imagePullPolicy: IfNotPresent 
+          command:
+            - redis-server
+          args:
+            - /config/master.conf
+          env:
+          - name: TZ
+            value: "Asia/Shanghai"
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: redis-config
+              mountPath: /config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1Gi
+          livenessProbe: &healthcheck
+            exec:
+              command: [ "redis-cli", "ping" ]
+          readinessProbe:
+            <<: *healthcheck
+
+      volumes:
+        - name: redis-config
+          configMap:
+            name: zxbk-redis
+            items: 
+            - key: master.conf
+              path: master.conf
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        annotations:
+          volume.beta.kubernetes.io/storage-class: "zxbk-redis"
+          gcp-auto-backup: "yes"
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 200Gi

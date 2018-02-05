@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zxbk-redis
+  namespace: qiqi-china-zxbk-prod
+data:
+  # Use the following file for reference http://download.redis.io/redis-stable/redis.conf
+  slave.conf: |
+    protected-mode no
+    port 6379
+    tcp-backlog 511
+    loglevel notice
+    logfile ""
+    dir /data
+    masterauth 123
+    slaveof zxbk-redis-master-0.zxbk-redis-service.qiqi-china-zxbk-prod.svc.cluster.local 6379
+  master.conf: |
+    protected-mode no
+    port 6379
+    tcp-backlog 511
+    loglevel notice
+    logfile ""
+    appendonly yes
+    appendfilename appendonly.aof
+    appendfsync always
+    save 900 1 
+    save 300 10 
+    save 60 10000
+    dir /data
+    requirepass 123
